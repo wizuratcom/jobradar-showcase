@@ -1,0 +1,26 @@
+name: Showcase CI
+on: [push, pull_request]
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: pip install -r backend/requirements.txt pytest pytest-asyncio httpx ruff
+      - run: ruff check backend --ignore E501
+      - run: python -m pytest backend -q
+      - run: npm ci && npm run lint && npm run build
+        working-directory: web
+      - run: docker build -t jobradar-showcase .
+      - run: pip install playwright && playwright install --with-deps chromium
+      - run: docker compose up -d --wait
+      - run: python -m backend.smoke_browser
+      - if: always()
+        run: docker compose down
